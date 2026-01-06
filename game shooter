@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXT LEVEL 2D TEAM SHOOTER</title>
+<style>
+body{margin:0;background:#020617;color:#fff;font-family:Arial}
+#hud{position:fixed;top:0;left:0;right:0;background:#020617;padding:6px;font-size:14px}
+#feed{position:fixed;top:40px;right:10px;font-size:12px;text-align:right}
+#scoreboard{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;justify-content:center;align-items:center}
+#scoreboard table{border-collapse:collapse}
+#scoreboard td,#scoreboard th{border:1px solid #fff;padding:6px 10px}
+canvas{display:block;margin-top:60px;background:#0f172a}
+</style>
+</head>
+<body>
+<div id="hud">NEXT LEVEL SHOOTER | Points: <span id="pts">0</span> | Rank: <span id="rank"></span></div>
+<div id="feed"></div>
+<div id="scoreboard"><table><tr><th>Team</th><th>Kills</th></tr><tr><td>Blue</td><td id="bk">0</td></tr><tr><td>Red</td><td id="rk">0</td></tr></table></div>
+<canvas id="game" width="1200" height="500"></canvas>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');
+let camX=0;
+let points=JSON.parse(localStorage.getItem('points'))||0;
+let rank=localStorage.getItem('rank')||'Rookie';
+let blueKills=0,redKills=0;
+const gravity=.6;
+const player={x:200,y:350,w:30,h:40,vx:0,vy:0,og:false,hp:100,kills:0};
+let enemies=[];
+for(let i=0;i<5;i++)enemies.push({x:900+i*80,y:350,w:30,h:40,hp:100});
+let bullets=[];
+let aimX=600,aimY=250;
+
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();aimX=e.clientX-r.left+camX;aimY=e.clientY-r.top});
+c.addEventListener('mousedown',e=>{if(e.button===0)shoot()});
+c.addEventListener('contextmenu',e=>e.preventDefault());
+
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key==='Tab'){e.preventDefault();document.getElementById('scoreboard').style.display='flex'}});
+document.addEventListener('keyup',e=>{keys[e.key]=false;if(e.key==='Tab')document.getElementById('scoreboard').style.display='none'});
+
+function shoot(){
+ const dx=aimX-player.x,dy=aimY-player.y;
+ const mag=Math.hypot(dx,dy);
+ bullets.push({x:player.x+15,y:player.y+20,vx:dx/mag*10,vy:dy/mag*10});
+}
+
+function update(){
+ if(keys['ArrowLeft'])player.vx=-4;else if(keys['ArrowRight'])player.vx=4;else player.vx=0;
+ if(keys[' ']&&player.og){player.vy=-12;player.og=false}
+ player.vy+=gravity;player.x+=player.vx;player.y+=player.vy;
+ if(player.y>350){player.y=350;player.vy=0;player.og=true}
+ camX=player.x-200;
+ bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy});
+ bullets.forEach(b=>{
+  enemies.forEach(e=>{
+   if(b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h){
+    const head=b.y<e.y+10;
+    e.hp-=head?100:30;
+    b.x=99999;
+    if(e.hp<=0){player.kills++;blueKills++;points+=head?50:30;killFeed(head?'HEADSHOT':'KILL')}
+   }
+  })
+ })
+ bullets=bullets.filter(b=>b.x<5000);
+}
+
+function killFeed(text){const f=document.getElementById('feed');const d=document.createElement('div');d.textContent='Blue '+text;f.appendChild(d);setTimeout(()=>d.remove(),2000)}
+
+function draw(){x.clearRect(0,0,c.width,c.height);
+ x.save();x.translate(-camX,0);
+ x.fillStyle='#22c55e';x.fillRect(player.x,player.y,player.w,player.h);
+ enemies.forEach(e=>{x.fillStyle='#ef4444';x.fillRect(e.x,e.y,e.w,e.h)});
+ x.fillStyle='#fde047';bullets.forEach(b=>x.fillRect(b.x,b.y,4,4));
+ x.restore();
+ // crosshair
+ x.fillStyle='red';x.beginPath();x.arc(aimX-camX,aimY,4,0,Math.PI*2);x.fill();
+}
+
+function updateRank(){
+ if(points>=1000)rank='Legend';
+ else if(points>=600)rank='Elite';
+ else if(points>=300)rank='Pro';
+ else if(points>=100)rank='Fighter';
+ else rank='Rookie';
+ localStorage.setItem('points',points);
+ localStorage.setItem('rank',rank);
+}
+
+function loop(){update();draw();document.getElementById('pts').innerText=points;document.getElementById('bk').innerText=blueKills;requestAnimationFrame(loop)}
+loop();
+</script>
+</body>
+</html>
